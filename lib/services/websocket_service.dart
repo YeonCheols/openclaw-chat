@@ -6,6 +6,7 @@ import 'package:crypto/crypto.dart';
 import 'package:cryptography/cryptography.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:web_socket_channel/io.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 enum ConnectionStatus {
@@ -28,6 +29,7 @@ class WebSocketService extends ChangeNotifier {
   static const _prefKeyPrivateKeySeed = 'device_private_key_seed';
   static const _prefKeyPublicKey = 'device_public_key';
   static const _prefKeyDeviceToken = 'device_token';
+  static const _prefKeyGatewayToken = 'gateway_token';
 
   static const _clientMode = 'webchat';
   static const _role = 'operator';
@@ -42,6 +44,7 @@ class WebSocketService extends ChangeNotifier {
   SimpleKeyPair? _keyPair;
   String? _deviceId;
   String? _deviceToken;
+  String? _gatewayToken;
 
   int _requestId = 0;
   final Map<String, Completer<Map<String, dynamic>>> _pendingRequests = {};
@@ -59,6 +62,7 @@ class WebSocketService extends ChangeNotifier {
   ConnectionStatus get status => _status;
   String get host => _host;
   int get port => _port;
+  String? get gatewayToken => _gatewayToken;
   String get serverUrl => 'ws://$_host:$_port';
 
   Future<void> loadSavedSettings() async {
@@ -66,6 +70,7 @@ class WebSocketService extends ChangeNotifier {
     _host = prefs.getString(_prefKeyHost) ?? _defaultHost;
     _port = prefs.getInt(_prefKeyPort) ?? _defaultPort;
     _deviceToken = prefs.getString(_prefKeyDeviceToken);
+    _gatewayToken = prefs.getString(_prefKeyGatewayToken);
     await _loadOrCreateKeyPair(prefs);
     notifyListeners();
   }
@@ -130,14 +135,28 @@ class WebSocketService extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> configureGatewayToken(String token) async {
+    _gatewayToken = token.isEmpty ? null : token;
+    final prefs = await SharedPreferences.getInstance();
+    if (token.isEmpty) {
+      await prefs.remove(_prefKeyGatewayToken);
+    } else {
+      await prefs.setString(_prefKeyGatewayToken, token);
+    }
+    notifyListeners();
+  }
+
   Future<void> connect() async {
     if (_status == ConnectionStatus.connecting || _status == ConnectionStatus.connected) return;
     _manualDisconnect = false;
     _setStatus(ConnectionStatus.connecting);
 
     try {
-      _channel = WebSocketChannel.connect(Uri.parse(serverUrl));
-      await _channel!.ready;
+      final socket = await WebSocket.connect(
+        serverUrl,
+        headers: {'Origin': 'http://$_host:$_port'},
+      );
+      _channel = IOWebSocketChannel(socket);
       _channel!.stream.listen(_onMessage, onError: _onError, onDone: _onDone);
     } catch (e) {
       debugPrint('[WS] Connect error: $e');
@@ -154,10 +173,10 @@ class WebSocketService extends ChangeNotifier {
     final platform = _getPlatform();
     final deviceFamily = _getDeviceFamily();
     final signedAt = DateTime.now().millisecondsSinceEpoch;
-    final tokenStr = _deviceToken ?? '';
+    final tokenStr = _deviceToken ?? _gatewayToken ?? '';
 
     final payloadStr = [
-      'v3',
+      'v2',
       _deviceId!,
       clientId,
       _clientMode,
@@ -166,8 +185,6 @@ class WebSocketService extends ChangeNotifier {
       signedAt.toString(),
       tokenStr,
       nonce,
-      platform,
-      deviceFamily,
     ].join('|');
 
     final sig = await ed25519.sign(utf8.encode(payloadStr), keyPair: _keyPair!);
@@ -179,8 +196,8 @@ class WebSocketService extends ChangeNotifier {
       'id': id,
       'method': 'connect',
       'params': {
-        'minProtocol': 1,
-        'maxProtocol': 1,
+        'minProtocol': 3,
+        'maxProtocol': 3,
         'client': {
           'id': clientId,
           'version': _clientVersion,
@@ -197,7 +214,7 @@ class WebSocketService extends ChangeNotifier {
           'signedAt': signedAt,
           'nonce': nonce,
         },
-        if (_deviceToken != null) 'auth': {'deviceToken': _deviceToken},
+        if (tokenStr.isNotEmpty) 'auth': {'token': tokenStr},
       },
     }));
   }

@@ -13,6 +13,7 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   late TextEditingController _hostController;
   late TextEditingController _portController;
+  late TextEditingController _gatewayTokenController;
 
   @override
   void initState() {
@@ -20,12 +21,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final ws = context.read<WebSocketService>();
     _hostController = TextEditingController(text: ws.host);
     _portController = TextEditingController(text: ws.port.toString());
+    _gatewayTokenController = TextEditingController(text: ws.gatewayToken ?? '');
   }
 
   @override
   void dispose() {
     _hostController.dispose();
     _portController.dispose();
+    _gatewayTokenController.dispose();
     super.dispose();
   }
 
@@ -36,6 +39,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     final ws = context.read<WebSocketService>();
     await ws.configure(host, port);
+    await ws.configureGatewayToken(_gatewayTokenController.text.trim());
     ws.disconnect();
     ws.connect();
 
@@ -100,6 +104,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     hintText: '18789',
                     border: OutlineInputBorder(),
                     prefixIcon: Icon(Icons.settings_ethernet),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _gatewayTokenController,
+                  obscureText: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Gateway Token',
+                    hintText: 'gateway.auth.token 값 입력',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.key),
                   ),
                 ),
                 const SizedBox(height: 16),
