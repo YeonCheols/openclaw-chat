@@ -20,8 +20,12 @@ class ChatProvider extends ChangeNotifier {
   void sendMessage(String text) {
     if (text.trim().isEmpty) return;
 
+    // OpenClaw는 chat 이벤트의 runId로 idempotencyKey 등과 같은 값을 쓸 수 있음.
+    // 사용자 말풍선 id가 runId와 같으면 _upsertMessage가 해당 인덱스를 봇 메시지로 덮어써
+    // "답변 오면 내 메시지가 사라지는" 현상이 난다. 서버 runId와 충돌하지 않도록 접두사 사용.
+    final localId = 'local_${DateTime.now().microsecondsSinceEpoch}';
     _messages.add(ChatMessage(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      id: localId,
       content: text.trim(),
       type: MessageType.user,
       createdAt: DateTime.now(),
