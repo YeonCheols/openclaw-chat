@@ -36,7 +36,8 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         title: Row(
           children: [
-            Image.asset('assets/icon.png', width: 28, height: 28, errorBuilder: (_, __, ___) => const SizedBox.shrink()),
+            // pubspec에 assets/icon.png가 없으면 일부 iOS 빌드에서 Image.asset이 예외로 크래시할 수 있음
+            Icon(Icons.chat_bubble_rounded, size: 26, color: Theme.of(context).colorScheme.primary),
             const SizedBox(width: 8),
             const Text('OpenClaw', style: TextStyle(fontWeight: FontWeight.w800, letterSpacing: -0.5)),
           ],

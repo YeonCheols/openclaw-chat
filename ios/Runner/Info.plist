@@ -47,9 +47,17 @@
 	<true/>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>로컬 네트워크의 서버에 연결하기 위해 필요합니다.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_dartVmService._tcp</string>
+		<string>_dartObservatory._tcp</string>
+		<string>_flutter._tcp</string>
+	</array>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsLocalNetworking</key>
+		<true/>
+		<key>NSAllowsArbitraryLoads</key>
 		<true/>
 	</dict>
 </dict>

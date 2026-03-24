@@ -9,7 +9,14 @@ import 'services/websocket_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final ws = WebSocketService();
-  await ws.loadSavedSettings();
+  try {
+    await ws.loadSavedSettings();
+  } catch (e, stack) {
+    FlutterError.dumpErrorToConsole(
+      FlutterErrorDetails(exception: e, stack: stack, library: 'openclaw main'),
+    );
+    // 키체인/SharedPreferences/암호 키 생성 실패 시에도 앱은 기본값으로 기동
+  }
   runApp(
     MultiProvider(
       providers: [
